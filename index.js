@@ -4,21 +4,61 @@ import axios from "axios";
 import "dotenv/config";
 
 import twilio from "twilio";
+
 // for scrapping
-// const jsdom = require("jsdom");
-// const { JSDOM } = jsdom;
+import { JSDOM } from "jsdom";
 
 const app = express();
 
 const accountSid = process.env.ACCOUNT_SID;
 const authToken = process.env.AUTH_TOKEN;
+
 const client = twilio(accountSid, authToken);
 
 app.get("/", (req, res) => {
   res.send("Hello World!");
 });
 
-// fetching api data
+// scrapping api gold images
+const IMAGEURL = "https://unsplash.com/s/photos/gold-jewellery"
+
+
+async function fetchIamge() {
+  try {
+    const response = await axios
+      .get(IMAGEURL, {
+        method: "GET",
+        headers: {
+          "authority": "unsplash.com",
+          "User-Agent":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36",
+          "Accept":"*/*",
+        },
+      })
+      const { document } = (new JSDOM(response.data)).window
+      // console.log(response.data);
+      let imageurls = []
+      document.querySelectorAll(".MorZF").forEach(element => {
+        const imageElement = element.querySelector(".a5VGX")
+    
+        if (imageElement) {
+          imageurls.push({
+            image: imageElement.srcset
+          });
+        }
+      });
+
+imageurls = imageurls.slice(20);
+imageurls = imageurls.slice(0, -12);
+
+      console.log(imageurls.image);
+      return imageurls
+
+  } catch (error) {
+    console.log(error, "==error");
+  }
+}
+
+// // fetching api gold price
 const URL =
   "https://www.malabargoldanddiamonds.com/malabarprice/index/currentGoldRate/?_=1679748127686";
 async function fetchData() {
@@ -29,10 +69,8 @@ async function fetchData() {
         method: "GET",
         headers: {
           "upgrade-insecure-requests": 1,
-          "User-Agent":
-            " Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36",
-          Accept:
-            "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
+          "User-Agent":" Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36",
+          "Accept":"text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
         },
       })
       .then((response) => {
@@ -52,9 +90,18 @@ async function fetchData() {
   }
 }
 
+// =format&fit=crop&w=200&q=60 200w
+
 // cron job
-const job = schedule.scheduleJob("*/1 * * * *", async () => {
-  let gramrate = await fetchData();
+const job = schedule.scheduleJob("* */1 * * * *", async () => {
+
+  const gramrate = await fetchData()
+  const imageUrl = await fetchIamge()
+
+  const randomIndex = Math.floor(Math.random() * imageUrl.length);
+  let mediaUrl = await imageUrl[randomIndex].image.split(' ')[8];
+
+  console.log(mediaUrl);
 
   const currentDate = new Date();
   const formattedDate = `${currentDate.getDate()}-${
@@ -63,10 +110,12 @@ const job = schedule.scheduleJob("*/1 * * * *", async () => {
   console.log(formattedDate);
   const gramRate = gramrate;
   const pavanRate = gramrate * 8;
-  const message = `ഇന്നത്തെ സ്വർണ വില\n\nപവന് ${pavanRate} കുറഞ്ഞു ${gramRate} രൂപയായി\n\n${formattedDate}\n\ngram     :   ${gramRate}\npavan  :   ${pavanRate}\n\nദിവസവും സ്വർണ്ണ വില അറിയുന്നതിന് ഞങ്ങളുടെ വാട്‌സ്ആപ്പ് ഗ്രൂപ്പിൽ അംഗമാവുക\n\nhttps://chat.whatsapp.com/LiHXqYPVjh49OV4WimWz76`;
+
+  const message = `ഇന്നത്തെ സ്വർണ വില\n\nപവന് ${pavanRate} ഗ്രാമിന് ${gramRate} രൂപയായി\n\n${formattedDate}\n\nഗ്രാം     :   ${gramRate}\nപവന്   :   ${pavanRate}\n\nദിവസവും സ്വർണ്ണ വില അറിയുന്നതിന് ഞങ്ങളുടെ വാട്‌സ്ആപ്പ് ഗ്രൂപ്പിൽ അംഗമാവുക\n\nhttps://chat.whatsapp.com/LiHXqYPVjh49OV4WimWz76`;
   client.messages
     .create({
       from: "whatsapp:+14155238886",
+      mediaUrl: mediaUrl,
       body: message,
       to: "whatsapp:+919633016190", // whatsapp no
     })
