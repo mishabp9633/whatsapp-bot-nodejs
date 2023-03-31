@@ -93,7 +93,7 @@ async function fetchData() {
 // =format&fit=crop&w=200&q=60 200w
 
 // cron job
-const job = schedule.scheduleJob("* */1 * * * *", async () => {
+const job = schedule.scheduleJob("*/1 * * * *", async () => {
 
   const gramrate = await fetchData()
   const imageUrl = await fetchIamge()
